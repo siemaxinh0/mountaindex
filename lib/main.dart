@@ -94,6 +94,7 @@ class _StatsScreenState extends State<StatsScreen> {
   final DataService _dataService = DataService();
   UserStats? _stats;
   int _conqueredPeaks = 0;
+  Peak? _highestConqueredPeak;
   bool _loading = true;
 
   @override
@@ -105,11 +106,33 @@ class _StatsScreenState extends State<StatsScreen> {
   Future<void> _loadStats() async {
     final stats = await _dataService.getUserStats('user1');
     final peaks = await _dataService.getAllPeaks();
+    final conqueredPeaks = peaks.where((p) => p.isConquered).toList();
+    
+    // Znajdź najwyższy zdobyty szczyt
+    Peak? highest;
+    if (conqueredPeaks.isNotEmpty) {
+      highest = conqueredPeaks.reduce((a, b) => a.height > b.height ? a : b);
+    }
+    
     setState(() {
       _stats = stats;
-      _conqueredPeaks = peaks.where((p) => p.isConquered).length;
+      _conqueredPeaks = conqueredPeaks.length;
+      _highestConqueredPeak = highest;
       _loading = false;
     });
+  }
+
+  void _navigateToProfile() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => UserProfileScreen(
+          stats: _stats,
+          conqueredPeaks: _conqueredPeaks,
+          highestPeak: _highestConqueredPeak,
+        ),
+      ),
+    );
   }
 
   @override
@@ -126,163 +149,729 @@ class _StatsScreenState extends State<StatsScreen> {
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _loadStats,
-              child: SingleChildScrollView(
+              child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Welcome Card
-                    Card(
-                      color: theme.colorScheme.primaryContainer,
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 30,
-                              backgroundColor: theme.colorScheme.primary,
-                              child: const Text('JK', style: TextStyle(color: Colors.white, fontSize: 20)),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('Witaj, Jan!', style: theme.textTheme.headlineSmall),
-                                  Text('Zdobywca gór', style: theme.textTheme.bodyMedium),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
+                children: [
+                  // ===== KLIKALNY BANER POWITALNY =====
+                  _WelcomeBanner(
+                    onTap: _navigateToProfile,
+                  ),
+                  const SizedBox(height: 24),
 
-                    // Stats Grid
-                    Text('Twoje Statystyki', style: theme.textTheme.titleLarge),
-                    const SizedBox(height: 12),
-                    GridView.count(
-                      crossAxisCount: 2,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      childAspectRatio: 1.3,
-                      children: [
-                        _StatCard(
-                          icon: Icons.terrain,
-                          title: 'Zdobyte szczyty',
-                          value: '${_stats?.totalPeaks ?? 0}',
-                          color: theme.colorScheme.primary,
-                        ),
-                        _StatCard(
-                          icon: Icons.trending_up,
-                          title: 'Przewyższenie',
-                          value: '${((_stats?.totalElevationGain ?? 0) / 1000).toStringAsFixed(1)} km',
-                          color: theme.colorScheme.tertiary,
-                        ),
-                        _StatCard(
-                          icon: Icons.flag,
-                          title: 'Najwyższy',
-                          value: '${_stats?.highestPeak ?? 0} m',
-                          subtitle: _stats?.highestPeakName,
-                          color: theme.colorScheme.secondary,
-                        ),
-                        _StatCard(
-                          icon: Icons.hiking,
-                          title: 'Wyprawy',
-                          value: '${_stats?.totalExpeditions ?? 0}',
-                          color: Colors.orange,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
+                  // ===== NAGŁÓWEK STATYSTYK =====
+                  Text('Twoje Statystyki', style: theme.textTheme.titleLarge),
+                  const SizedBox(height: 12),
+                  
+                  // ===== LISTA STATYSTYK =====
+                  _StatListTile(
+                    icon: Icons.terrain,
+                    iconColor: theme.colorScheme.primary,
+                    title: 'Zdobyte szczyty',
+                    value: '${_stats?.totalPeaks ?? 0}',
+                    subtitle: 'z Twojej listy',
+                  ),
+                  _StatListTile(
+                    icon: Icons.trending_up,
+                    iconColor: theme.colorScheme.tertiary,
+                    title: 'Łączne przewyższenie',
+                    value: '${((_stats?.totalElevationGain ?? 0) / 1000).toStringAsFixed(1)} km',
+                    subtitle: 'suma wszystkich wejść',
+                  ),
+                  _StatListTile(
+                    icon: Icons.flag,
+                    iconColor: Colors.amber[700]!,
+                    title: 'Najwyższy zdobyty',
+                    value: _highestConqueredPeak != null 
+                        ? '${_highestConqueredPeak!.height} m' 
+                        : '—',
+                    subtitle: _highestConqueredPeak?.name ?? 'brak zdobyć',
+                  ),
+                  _StatListTile(
+                    icon: Icons.hiking,
+                    iconColor: Colors.orange,
+                    title: 'Łączne wyprawy',
+                    value: '${_stats?.totalExpeditions ?? 0}',
+                    subtitle: 'wszystkie wyjścia w góry',
+                  ),
+                  
+                  const SizedBox(height: 24),
 
-                    // Crown Progress
-                    Text('Korona Gór Polski', style: theme.textTheme.titleLarge),
-                    const SizedBox(height: 12),
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(Icons.workspace_premium, color: Colors.amber, size: 40),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text('Postęp: $_conqueredPeaks z 28', style: theme.textTheme.titleMedium),
-                                      const SizedBox(height: 4),
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(8),
-                                        child: LinearProgressIndicator(
-                                          value: _conqueredPeaks / 28,
-                                          minHeight: 10,
-                                          backgroundColor: Colors.grey[300],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Text('${(_conqueredPeaks / 28 * 100).round()}%', style: theme.textTheme.titleLarge?.copyWith(
-                                  color: theme.colorScheme.primary,
-                                )),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  // ===== KORONA GÓR POLSKI =====
+                  Text('Korona Gór Polski', style: theme.textTheme.titleLarge),
+                  const SizedBox(height: 12),
+                  _KoronaProgressCard(
+                    conqueredCount: _conqueredPeaks,
+                    totalCount: 28,
+                  ),
+                ],
               ),
             ),
     );
   }
 }
 
-class _StatCard extends StatelessWidget {
+// ===== KLIKALNY BANER POWITALNY =====
+class _WelcomeBanner extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _WelcomeBanner({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
+    return Card(
+      color: theme.colorScheme.primaryContainer,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Hero(
+                tag: 'profile_avatar',
+                child: CircleAvatar(
+                  radius: 30,
+                  backgroundColor: theme.colorScheme.primary,
+                  child: const Text('JK', style: TextStyle(color: Colors.white, fontSize: 20)),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Witaj, Jan!', style: theme.textTheme.headlineSmall),
+                    Text('Wytrawny Zdobywca', style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onPrimaryContainer.withOpacity(0.7),
+                    )),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: theme.colorScheme.onPrimaryContainer.withOpacity(0.5),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ===== WIERSZ STATYSTYKI =====
+class _StatListTile extends StatelessWidget {
   final IconData icon;
+  final Color iconColor;
   final String title;
   final String value;
   final String? subtitle;
-  final Color color;
 
-  const _StatCard({
+  const _StatListTile({
     required this.icon,
+    required this.iconColor,
     required this.title,
     required this.value,
     this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                // Ikona w kółku
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: iconColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: iconColor, size: 24),
+                ),
+                const SizedBox(width: 16),
+                // Nazwa i podtytuł
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: theme.textTheme.titleSmall),
+                      if (subtitle != null)
+                        Text(
+                          subtitle!,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                // Wartość
+                Text(
+                  value,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: iconColor,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ===== KARTA POSTĘPU KORONY =====
+class _KoronaProgressCard extends StatelessWidget {
+  final int conqueredCount;
+  final int totalCount;
+
+  const _KoronaProgressCard({
+    required this.conqueredCount,
+    required this.totalCount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final progress = conqueredCount / totalCount;
+    final percentage = (progress * 100).round();
+    
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.workspace_premium, color: Colors.amber, size: 32),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Postęp: $conqueredCount z $totalCount',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'szczytów Korony Gór Polski',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '$percentage%',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 12,
+                backgroundColor: Colors.grey[300],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ============ USER PROFILE SCREEN ============
+class UserProfileScreen extends StatefulWidget {
+  final UserStats? stats;
+  final int conqueredPeaks;
+  final Peak? highestPeak;
+
+  const UserProfileScreen({
+    super.key,
+    this.stats,
+    required this.conqueredPeaks,
+    this.highestPeak,
+  });
+
+  @override
+  State<UserProfileScreen> createState() => _UserProfileScreenState();
+}
+
+class _UserProfileScreenState extends State<UserProfileScreen> {
+  final DataService _dataService = DataService();
+  List<AppUser> _friends = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFriends();
+  }
+
+  Future<void> _loadFriends() async {
+    final friends = await _dataService.getFriends();
+    setState(() {
+      _friends = friends;
+      _loading = false;
+    });
+  }
+
+  String _getRank(int peaks) {
+    if (peaks >= 20) return 'Legenda Gór';
+    if (peaks >= 15) return 'Mistrz Wypraw';
+    if (peaks >= 10) return 'Wytrawny Zdobywca';
+    if (peaks >= 5) return 'Poszukiwacz Przygód';
+    if (peaks >= 1) return 'Początkujący Turysta';
+    return 'Nowicjusz';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
+    return Scaffold(
+      body: CustomScrollView(
+        slivers: [
+          // ===== NAGŁÓWEK PROFILU =====
+          SliverAppBar(
+            expandedHeight: 220,
+            pinned: true,
+            backgroundColor: theme.colorScheme.primaryContainer,
+            flexibleSpace: FlexibleSpaceBar(
+              background: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      theme.colorScheme.primary,
+                      theme.colorScheme.primaryContainer,
+                    ],
+                  ),
+                ),
+                child: SafeArea(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(height: 40),
+                      // Avatar
+                      Hero(
+                        tag: 'profile_avatar',
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 4),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.2),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: CircleAvatar(
+                            radius: 50,
+                            backgroundColor: theme.colorScheme.secondary,
+                            child: const Text(
+                              'JK',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // Imię
+                      const Text(
+                        'Jan Kowalski',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      // Ranga
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.military_tech, color: Colors.amber, size: 18),
+                            const SizedBox(width: 4),
+                            Text(
+                              _getRank(widget.conqueredPeaks),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // ===== TREŚĆ =====
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ===== NAJWYŻSZY ZDOBYTY SZCZYT =====
+                  if (widget.highestPeak != null) ...[
+                    _HighlightCard(peak: widget.highestPeak!),
+                    const SizedBox(height: 24),
+                  ],
+
+                  // ===== PODSUMOWANIE STATYSTYK =====
+                  Text('Podsumowanie', style: theme.textTheme.titleLarge),
+                  const SizedBox(height: 12),
+                  _ProfileStatsSummary(
+                    stats: widget.stats,
+                    conqueredPeaks: widget.conqueredPeaks,
+                  ),
+                  const SizedBox(height: 24),
+
+                  // ===== ZNAJOMI =====
+                  Text('Znajomi', style: theme.textTheme.titleLarge),
+                  const SizedBox(height: 12),
+                  if (_loading)
+                    const Center(child: CircularProgressIndicator())
+                  else
+                    _FriendsSection(friends: _friends),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ===== KARTA NAJWYŻSZEGO SZCZYTU =====
+class _HighlightCard extends StatelessWidget {
+  final Peak peak;
+
+  const _HighlightCard({required this.peak});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            theme.colorScheme.primary.withOpacity(0.1),
+            theme.colorScheme.secondary.withOpacity(0.1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: theme.colorScheme.primary.withOpacity(0.3),
+        ),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: Colors.amber.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(Icons.emoji_events, color: Colors.amber, size: 36),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Najwyższy zdobyty szczyt',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withOpacity(0.6),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  peak.name,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  '${peak.height} m n.p.m. • ${peak.region}',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ===== PODSUMOWANIE STATYSTYK W PROFILU =====
+class _ProfileStatsSummary extends StatelessWidget {
+  final UserStats? stats;
+  final int conqueredPeaks;
+
+  const _ProfileStatsSummary({
+    this.stats,
+    required this.conqueredPeaks,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _MiniStatItem(
+              icon: Icons.terrain,
+              value: '${stats?.totalPeaks ?? 0}',
+              label: 'Szczyty',
+              color: theme.colorScheme.primary,
+            ),
+            _MiniStatItem(
+              icon: Icons.hiking,
+              value: '${stats?.totalExpeditions ?? 0}',
+              label: 'Wyprawy',
+              color: Colors.orange,
+            ),
+            _MiniStatItem(
+              icon: Icons.trending_up,
+              value: '${((stats?.totalElevationGain ?? 0) / 1000).toStringAsFixed(1)}k',
+              label: 'Wysokość',
+              color: theme.colorScheme.tertiary,
+            ),
+            _MiniStatItem(
+              icon: Icons.workspace_premium,
+              value: '$conqueredPeaks/28',
+              label: 'Korona',
+              color: Colors.amber,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MiniStatItem extends StatelessWidget {
+  final IconData icon;
+  final String value;
+  final String label;
+  final Color color;
+
+  const _MiniStatItem({
+    required this.icon,
+    required this.value,
+    required this.label,
     required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: color, size: 28),
-            const Spacer(),
-            Text(value, style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: color,
-            )),
-            Text(title, style: Theme.of(context).textTheme.bodySmall),
-            if (subtitle != null)
-              Text(subtitle!, style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.grey,
-              )),
-          ],
+    return Column(
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: color, size: 22),
         ),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            color: color,
+          ),
+        ),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
+    );
+  }
+}
+
+// ===== SEKCJA ZNAJOMYCH =====
+class _FriendsSection extends StatelessWidget {
+  final List<AppUser> friends;
+
+  const _FriendsSection({required this.friends});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
+    if (friends.isEmpty) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: Column(
+              children: [
+                Icon(Icons.people_outline, size: 48, color: Colors.grey[400]),
+                const SizedBox(height: 8),
+                Text('Brak znajomych', style: theme.textTheme.bodyMedium),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    
+    return SizedBox(
+      height: 120,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: friends.length,
+        itemBuilder: (context, index) {
+          final friend = friends[index];
+          return _FriendAvatar(friend: friend);
+        },
+      ),
+    );
+  }
+}
+
+class _FriendAvatar extends StatelessWidget {
+  final AppUser friend;
+
+  const _FriendAvatar({required this.friend});
+
+  Color _getAvatarColor(String name) {
+    final colors = [
+      Colors.blue,
+      Colors.purple,
+      Colors.teal,
+      Colors.orange,
+      Colors.pink,
+    ];
+    return colors[name.hashCode % colors.length];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final initials = friend.name.split(' ').map((e) => e[0]).take(2).join();
+    
+    return Container(
+      width: 90,
+      margin: const EdgeInsets.only(right: 12),
+      child: Column(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: _getAvatarColor(friend.name).withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: CircleAvatar(
+              radius: 32,
+              backgroundColor: _getAvatarColor(friend.name),
+              child: Text(
+                initials,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            friend.name.split(' ').first,
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w500,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+          Text(
+            '${friend.stats.totalPeaks} szczytów',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withOpacity(0.6),
+              fontSize: 11,
+            ),
+          ),
+        ],
       ),
     );
   }
