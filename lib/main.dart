@@ -1792,9 +1792,9 @@ class _PeakCard extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.55,
-        minChildSize: 0.35,
-        maxChildSize: 0.85,
+        initialChildSize: 0.7,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
         expand: false,
         builder: (context, scrollController) => SingleChildScrollView(
           controller: scrollController,
@@ -1815,7 +1815,7 @@ class _PeakCard extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               
-              // Nagłówek
+              // Nagłówek z flagami
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1823,11 +1823,21 @@ class _PeakCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          peak.name,
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                peak.name,
+                                style: theme.textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            if (peak.flags.isNotEmpty) ...[
+                              const SizedBox(width: 10),
+                              Text(peak.flags, style: const TextStyle(fontSize: 20)),
+                            ],
+                          ],
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -1868,7 +1878,56 @@ class _PeakCard extends StatelessWidget {
                 ],
               ),
               
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
+              
+              // Informacje podstawowe w siatce
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    _InfoRow(
+                      icon: Icons.flag_outlined,
+                      label: peak.countries.length > 1 ? 'Kraje' : 'Kraj',
+                      value: peak.countries.join(', '),
+                    ),
+                    const Divider(height: 20),
+                    _InfoRow(
+                      icon: Icons.terrain,
+                      label: 'Pasmo górskie',
+                      value: peak.range ?? 'Brak danych',
+                    ),
+                    const Divider(height: 20),
+                    _InfoRow(
+                      icon: Icons.height,
+                      label: 'Wysokość',
+                      value: '${peak.height} m n.p.m.',
+                    ),
+                    if (peak.achievementIds.isNotEmpty) ...[
+                      const Divider(height: 20),
+                      _InfoRow(
+                        icon: Icons.emoji_events_outlined,
+                        label: 'Osiągnięcia',
+                        value: peak.achievementIds.map((id) {
+                          switch (id) {
+                            case 'korona_polski': return '👑 Korona Polski';
+                            case 'korona_tatr': return '🏔️ Korona Tatr';
+                            case 'korona_europy': return '🌍 Korona Europy';
+                            case 'czerwone_wierchy': return '🔴 Czerwone Wierchy';
+                            default: return id;
+                          }
+                        }).join('\n'),
+                        isMultiline: true,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              
+              const SizedBox(height: 20),
               
               // Status zdobycia
               if (peak.isConquered)
@@ -1907,7 +1966,7 @@ class _PeakCard extends StatelessWidget {
                   ),
                 ),
               
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
               
               // Trudność
               Text(
@@ -1916,7 +1975,7 @@ class _PeakCard extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               
               Row(
                 children: [
@@ -2030,6 +2089,52 @@ class _PeakCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ===== WIERSZ INFORMACJI =====
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final bool isMultiline;
+
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.isMultiline = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
+    return Row(
+      crossAxisAlignment: isMultiline ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+      children: [
+        Icon(icon, size: 20, color: theme.colorScheme.primary),
+        const SizedBox(width: 12),
+        SizedBox(
+          width: 100,
+          child: Text(
+            label,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.right,
+          ),
+        ),
+      ],
     );
   }
 }

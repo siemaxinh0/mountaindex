@@ -79,8 +79,11 @@ class DataService {
     Peak(id: 'kasprowy', name: 'Kasprowy Wierch', region: 'Tatry Zachodnie', countries: ['Polska', 'Słowacja'], range: 'Tatry', height: 1987, difficultySummer: 2.0, difficultyWinter: 2.5, achievementIds: ['korona_tatr']),
     Peak(id: 'krivan', name: 'Kriváň', region: 'Tatry Wysokie', countries: ['Słowacja'], range: 'Tatry', height: 2494, difficultySummer: 3.5, difficultyWinter: 4.5, achievementIds: ['korona_tatr']),
     Peak(id: 'slawkowski', name: 'Sławkowski Szczyt', region: 'Tatry Wysokie', countries: ['Słowacja'], range: 'Tatry', height: 2452, difficultySummer: 4.0, difficultyWinter: 5.0, achievementIds: ['korona_tatr']),
-    Peak(id: 'czerwone-wierchy', name: 'Czerwone Wierchy', region: 'Tatry Zachodnie', countries: ['Polska'], range: 'Tatry', height: 2122, difficultySummer: 3.0, difficultyWinter: 4.0, achievementIds: ['korona_tatr']),
-    Peak(id: 'orla-perc', name: 'Granaty', region: 'Tatry Wysokie', countries: ['Polska'], range: 'Tatry', height: 2239, difficultySummer: 4.5, difficultyWinter: 5.0, achievementIds: ['korona_tatr']),
+    // Czerwone Wierchy - grzbiet w Tatrach Zachodnich (4 szczyty na osiągnięcie)
+    Peak(id: 'krzesanica', name: 'Krzesanica', region: 'Tatry Zachodnie', countries: ['Polska'], range: 'Tatry', height: 2122, difficultySummer: 3.0, difficultyWinter: 4.0, achievementIds: ['korona_tatr', 'czerwone_wierchy']),
+    Peak(id: 'ciemniak', name: 'Ciemniak', region: 'Tatry Zachodnie', countries: ['Polska'], range: 'Tatry', height: 2096, difficultySummer: 3.0, difficultyWinter: 4.0, achievementIds: ['czerwone_wierchy']),
+    Peak(id: 'malolaczniak', name: 'Małołączniak', region: 'Tatry Zachodnie', countries: ['Polska'], range: 'Tatry', height: 2096, difficultySummer: 2.5, difficultyWinter: 3.5, achievementIds: ['czerwone_wierchy']),
+    Peak(id: 'kopa-kondracka', name: 'Kopa Kondracka', region: 'Tatry Zachodnie', countries: ['Polska'], range: 'Tatry', height: 2005, difficultySummer: 2.5, difficultyWinter: 3.5, achievementIds: ['czerwone_wierchy']),
 
     // ==================== KORONA EUROPY (najwyższe szczyty państw) ====================
     // Francja - Mont Blanc
@@ -343,6 +346,11 @@ class DataService {
       'name': 'Korona Europy',
       'description': 'Zdobądź najwyższe szczyty każdego kraju europejskiego',
       'icon': '🌍',
+    },
+    'czerwone_wierchy': {
+      'name': 'Czerwone Wierchy',
+      'description': 'Zdobądź wszystkie szczyty grzbietu Czerwonych Wierchów: Krzesanicę, Ciemniak, Małołączniak i Kopę Kondracką',
+      'icon': '🔴',
     },
     // Osiągnięcia za przewyższenie
     'elevation_1k': {
