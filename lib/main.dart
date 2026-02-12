@@ -93,8 +93,8 @@ class StatsScreen extends StatefulWidget {
 class _StatsScreenState extends State<StatsScreen> {
   final DataService _dataService = DataService();
   AppUser? _currentUser;
-  int _conqueredPeaks = 0;
   Peak? _highestConqueredPeak;
+  List<Achievement> _achievements = [];
   bool _loading = true;
 
   @override
@@ -106,6 +106,7 @@ class _StatsScreenState extends State<StatsScreen> {
   Future<void> _loadStats() async {
     final currentUser = await _dataService.getCurrentUser();
     final peaks = await _dataService.getAllPeaks();
+    final achievements = await _dataService.getAchievements();
     final conqueredPeaks = peaks.where((p) => p.isConquered).toList();
     
     // Znajdź najwyższy zdobyty szczyt
@@ -116,8 +117,8 @@ class _StatsScreenState extends State<StatsScreen> {
     
     setState(() {
       _currentUser = currentUser;
-      _conqueredPeaks = conqueredPeaks.length;
       _highestConqueredPeak = highest;
+      _achievements = achievements;
       _loading = false;
     });
   }
@@ -128,6 +129,15 @@ class _StatsScreenState extends State<StatsScreen> {
       context,
       MaterialPageRoute(
         builder: (context) => UserProfileScreen(user: _currentUser!),
+      ),
+    );
+  }
+
+  void _navigateToAchievementDetails(Achievement achievement) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AchievementDetailScreen(achievement: achievement),
       ),
     );
   }
@@ -195,13 +205,13 @@ class _StatsScreenState extends State<StatsScreen> {
                   
                   const SizedBox(height: 24),
 
-                  // ===== KORONA GÓR POLSKI =====
-                  Text('Korona Gór Polski', style: theme.textTheme.titleLarge),
+                  // ===== OSIĄGNIĘCIA =====
+                  Text('Osiągnięcia', style: theme.textTheme.titleLarge),
                   const SizedBox(height: 12),
-                  _KoronaProgressCard(
-                    conqueredCount: _conqueredPeaks,
-                    totalCount: 28,
-                  ),
+                  ..._achievements.map((achievement) => _AchievementCard(
+                    achievement: achievement,
+                    onTap: () => _navigateToAchievementDetails(achievement),
+                  )),
                 ],
               ),
             ),
@@ -334,84 +344,314 @@ class _StatListTile extends StatelessWidget {
 }
 
 // ===== KARTA POSTĘPU KORONY =====
-class _KoronaProgressCard extends StatelessWidget {
-  final int conqueredCount;
-  final int totalCount;
+class _AchievementCard extends StatelessWidget {
+  final Achievement achievement;
+  final VoidCallback onTap;
 
-  const _KoronaProgressCard({
-    required this.conqueredCount,
-    required this.totalCount,
+  const _AchievementCard({
+    required this.achievement,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final progress = conqueredCount / totalCount;
-    final percentage = (progress * 100).round();
+    final percentage = (achievement.progress * 100).round();
     
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: Colors.amber.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.workspace_premium, color: Colors.amber, size: 32),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Postęp: $conqueredCount z $totalCount',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+      margin: const EdgeInsets.only(bottom: 12),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: achievement.unlocked 
+                          ? Colors.amber.withOpacity(0.15) 
+                          : Colors.grey.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Center(
+                      child: Text(
+                        achievement.icon, 
+                        style: const TextStyle(fontSize: 28),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'szczytów Korony Gór Polski',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          achievement.name,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${achievement.conqueredPeaks} z ${achievement.requiredPeaks} szczytów',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: achievement.unlocked 
+                          ? Colors.green.withOpacity(0.15)
+                          : theme.colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      achievement.unlocked ? '✓' : '$percentage%',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: achievement.unlocked 
+                            ? Colors.green 
+                            : theme.colorScheme.primary,
                       ),
-                    ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: achievement.progress,
+                  minHeight: 8,
+                  backgroundColor: Colors.grey[300],
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    achievement.unlocked ? Colors.green : theme.colorScheme.primary,
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '$percentage%',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.primary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ============ ACHIEVEMENT DETAIL SCREEN ============
+class AchievementDetailScreen extends StatefulWidget {
+  final Achievement achievement;
+
+  const AchievementDetailScreen({super.key, required this.achievement});
+
+  @override
+  State<AchievementDetailScreen> createState() => _AchievementDetailScreenState();
+}
+
+class _AchievementDetailScreenState extends State<AchievementDetailScreen> {
+  final DataService _dataService = DataService();
+  List<Peak> _peaks = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPeaks();
+  }
+
+  Future<void> _loadPeaks() async {
+    final peaks = await _dataService.getPeaksForAchievement(widget.achievement.id);
+    setState(() {
+      _peaks = peaks;
+      _loading = false;
+    });
+  }
+
+  Future<void> _togglePeakConquered(String peakId) async {
+    await _dataService.togglePeakConquered(peakId);
+    await _loadPeaks();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final achievement = widget.achievement;
+    
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(achievement.name),
+        backgroundColor: theme.colorScheme.primaryContainer,
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : CustomScrollView(
+              slivers: [
+                // Nagłówek z postępem
+                SliverToBoxAdapter(
+                  child: Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          theme.colorScheme.primaryContainer,
+                          theme.colorScheme.surface,
+                        ],
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: achievement.unlocked 
+                                ? Colors.amber.withOpacity(0.2) 
+                                : Colors.grey.withOpacity(0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: Text(
+                              achievement.icon, 
+                              style: const TextStyle(fontSize: 40),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          achievement.description,
+                          style: theme.textTheme.bodyLarge,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              '${achievement.conqueredPeaks}',
+                              style: theme.textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                            Text(
+                              ' / ${achievement.requiredPeaks}',
+                              style: theme.textTheme.headlineMedium?.copyWith(
+                                color: theme.colorScheme.onSurface.withOpacity(0.5),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: 200,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: LinearProgressIndicator(
+                              value: achievement.progress,
+                              minHeight: 12,
+                              backgroundColor: Colors.grey[300],
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                achievement.unlocked ? Colors.green : theme.colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
+                
+                // Lista szczytów
+                SliverPadding(
+                  padding: const EdgeInsets.all(16),
+                  sliver: SliverToBoxAdapter(
+                    child: Text('Szczyty', style: theme.textTheme.titleLarge),
+                  ),
+                ),
+                
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final peak = _peaks[index];
+                        return _AchievementPeakTile(
+                          peak: peak,
+                          onToggle: () => _togglePeakConquered(peak.id),
+                        );
+                      },
+                      childCount: _peaks.length,
+                    ),
+                  ),
+                ),
+                
+                const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
               ],
             ),
-            const SizedBox(height: 16),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 12,
-                backgroundColor: Colors.grey[300],
-              ),
-            ),
-          ],
+    );
+  }
+}
+
+class _AchievementPeakTile extends StatelessWidget {
+  final Peak peak;
+  final VoidCallback onToggle;
+
+  const _AchievementPeakTile({
+    required this.peak,
+    required this.onToggle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: peak.isConquered 
+                ? Colors.green.withOpacity(0.15)
+                : Colors.grey.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            peak.isConquered ? Icons.check_circle : Icons.radio_button_unchecked,
+            color: peak.isConquered ? Colors.green : Colors.grey,
+          ),
+        ),
+        title: Text(
+          peak.name,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            decoration: peak.isConquered ? TextDecoration.lineThrough : null,
+            color: peak.isConquered 
+                ? theme.colorScheme.onSurface.withOpacity(0.5) 
+                : null,
+          ),
+        ),
+        subtitle: Text(
+          '${peak.height} m • ${peak.country ?? peak.region}',
+          style: theme.textTheme.bodySmall,
+        ),
+        trailing: IconButton(
+          icon: Icon(
+            peak.isConquered ? Icons.close : Icons.check,
+            color: peak.isConquered ? Colors.red : Colors.green,
+          ),
+          onPressed: onToggle,
         ),
       ),
     );
@@ -472,7 +712,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         slivers: [
           // ===== NAGŁÓWEK PROFILU =====
           SliverAppBar(
-            expandedHeight: 220,
+            expandedHeight: 260,
             pinned: true,
             backgroundColor: theme.colorScheme.primaryContainer,
             actions: [
@@ -500,73 +740,75 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   ),
                 ),
                 child: SafeArea(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const SizedBox(height: 40),
-                      // Avatar
-                      Hero(
-                        tag: _isCurrentUser ? 'profile_avatar' : 'avatar_${user.id}',
-                        child: Container(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 48),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Avatar
+                        Hero(
+                          tag: _isCurrentUser ? 'profile_avatar' : 'avatar_${user.id}',
+                          child: Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 4),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: CircleAvatar(
+                              radius: 50,
+                              backgroundColor: theme.colorScheme.secondary,
+                              child: Text(
+                                user.initials,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        // Imię
+                        Text(
+                          user.name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        // Ranga
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                           decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 4),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.military_tech, color: Colors.amber, size: 18),
+                              const SizedBox(width: 4),
+                              Text(
+                                user.rank,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ],
                           ),
-                          child: CircleAvatar(
-                            radius: 50,
-                            backgroundColor: theme.colorScheme.secondary,
-                            child: Text(
-                              user.initials,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 32,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      // Imię
-                      Text(
-                        user.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      // Ranga
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.military_tech, color: Colors.amber, size: 18),
-                            const SizedBox(width: 4),
-                            Text(
-                              user.rank,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),

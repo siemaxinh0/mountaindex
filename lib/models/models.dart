@@ -3,9 +3,12 @@ class Peak {
   final String id;
   final String name;
   final String region;
+  final String? country; // Kraj (np. 'Polska', 'Francja')
+  final String? range;   // Pasmo górskie (np. 'Tatry', 'Alpy')
   final int height;
   final double difficultySummer;
   final double difficultyWinter;
+  final List<String> achievementIds; // Do których osiągnięć należy
   bool isConquered;
   DateTime? conquerDate;
 
@@ -13,9 +16,12 @@ class Peak {
     required this.id,
     required this.name,
     required this.region,
+    this.country,
+    this.range,
     required this.height,
     this.difficultySummer = 2.0,
     this.difficultyWinter = 3.0,
+    this.achievementIds = const [],
     this.isConquered = false,
     this.conquerDate,
   });
@@ -24,9 +30,12 @@ class Peak {
     'id': id,
     'name': name,
     'region': region,
+    'country': country,
+    'range': range,
     'height': height,
     'difficultySummer': difficultySummer,
     'difficultyWinter': difficultyWinter,
+    'achievementIds': achievementIds,
     'isConquered': isConquered,
     'conquerDate': conquerDate?.toIso8601String(),
   };
@@ -35,9 +44,12 @@ class Peak {
     id: json['id'] as String,
     name: json['name'] as String,
     region: json['region'] as String? ?? '',
+    country: json['country'] as String?,
+    range: json['range'] as String?,
     height: json['height'] as int,
     difficultySummer: (json['difficultySummer'] as num?)?.toDouble() ?? 2.0,
     difficultyWinter: (json['difficultyWinter'] as num?)?.toDouble() ?? 3.0,
+    achievementIds: List<String>.from(json['achievementIds'] ?? []),
     isConquered: json['isConquered'] as bool? ?? false,
     conquerDate: json['conquerDate'] != null 
         ? DateTime.parse(json['conquerDate'] as String) 
@@ -49,9 +61,12 @@ class Peak {
     String? id,
     String? name,
     String? region,
+    String? country,
+    String? range,
     int? height,
     double? difficultySummer,
     double? difficultyWinter,
+    List<String>? achievementIds,
     bool? isConquered,
     DateTime? conquerDate,
   }) {
@@ -59,9 +74,12 @@ class Peak {
       id: id ?? this.id,
       name: name ?? this.name,
       region: region ?? this.region,
+      country: country ?? this.country,
+      range: range ?? this.range,
       height: height ?? this.height,
       difficultySummer: difficultySummer ?? this.difficultySummer,
       difficultyWinter: difficultyWinter ?? this.difficultyWinter,
+      achievementIds: achievementIds ?? this.achievementIds,
       isConquered: isConquered ?? this.isConquered,
       conquerDate: conquerDate ?? this.conquerDate,
     );
@@ -201,15 +219,19 @@ class Achievement {
   final String name;
   final String description;
   final String icon;
+  final int requiredPeaks;      // Ile szczytów trzeba zdobyć
+  final int conqueredPeaks;     // Ile już zdobyto
   final bool unlocked;
-  final double progress;
-
+  
   Achievement({
     required this.id,
     required this.name,
     required this.description,
     this.icon = '🏔️',
+    this.requiredPeaks = 0,
+    this.conqueredPeaks = 0,
     this.unlocked = false,
-    this.progress = 0.0,
   });
+
+  double get progress => requiredPeaks > 0 ? conqueredPeaks / requiredPeaks : 0.0;
 }
