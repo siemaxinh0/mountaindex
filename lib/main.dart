@@ -1,6 +1,48 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'models/models.dart';
 import 'services/data_service.dart';
+
+// Brand colors
+const Color kPrimaryGreen = Color(0xFF3D5A37);
+const Color kPrimaryGreenLight = Color(0xFF4A6B42);
+const Color kBackgroundLight = Color(0xFFF5F7F4);
+const Color kSurfaceLight = Color(0xFFEEF2EC);
+
+// ===== APP LOGO WIDGET =====
+/// Placeholder for app logo - replace Image.asset path with actual logo
+class AppLogo extends StatelessWidget {
+  final double size;
+  final bool withBackground;
+  
+  const AppLogo({
+    super.key,
+    this.size = 48,
+    this.withBackground = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // TODO: Replace with actual logo asset
+    // return Image.asset('assets/images/logo.png', width: size, height: size);
+    
+    final logoWidget = Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: withBackground ? kPrimaryGreen : Colors.transparent,
+        borderRadius: BorderRadius.circular(size * 0.2),
+      ),
+      child: Icon(
+        Icons.landscape,
+        size: size * 0.7,
+        color: withBackground ? Colors.white : kPrimaryGreen,
+      ),
+    );
+    
+    return logoWidget;
+  }
+}
 
 void main() {
   runApp(const MountainindexApp());
@@ -12,17 +54,32 @@ class MountainindexApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Mountainindex',
+      title: 'mountainindex',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2E7D32),
+          seedColor: kPrimaryGreen,
           brightness: Brightness.light,
+          primary: kPrimaryGreen,
+          surface: kBackgroundLight,
         ),
         useMaterial3: true,
+        scaffoldBackgroundColor: kBackgroundLight,
+        textTheme: GoogleFonts.montserratTextTheme(),
         cardTheme: CardThemeData(
           elevation: 2,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          color: Colors.white,
+        ),
+        appBarTheme: AppBarTheme(
+          backgroundColor: kPrimaryGreen,
+          foregroundColor: Colors.white,
+          centerTitle: true,
+          titleTextStyle: GoogleFonts.montserrat(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
         ),
       ),
       home: const HomeScreen(),
@@ -148,9 +205,18 @@ class _StatsScreenState extends State<StatsScreen> {
     
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mountainindex'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const AppLogo(size: 28),
+            const SizedBox(width: 10),
+            Text('mountainindex', style: GoogleFonts.montserrat(
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.5,
+            )),
+          ],
+        ),
         centerTitle: true,
-        backgroundColor: theme.colorScheme.primaryContainer,
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -231,7 +297,7 @@ class _WelcomeBanner extends StatelessWidget {
     final theme = Theme.of(context);
     
     return Card(
-      color: theme.colorScheme.primaryContainer,
+      color: kPrimaryGreen,
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
@@ -243,8 +309,8 @@ class _WelcomeBanner extends StatelessWidget {
                 tag: 'profile_avatar',
                 child: CircleAvatar(
                   radius: 30,
-                  backgroundColor: theme.colorScheme.primary,
-                  child: Text(user.initials, style: const TextStyle(color: Colors.white, fontSize: 20)),
+                  backgroundColor: Colors.white,
+                  child: const AppLogo(size: 36),
                 ),
               ),
               const SizedBox(width: 16),
@@ -252,16 +318,25 @@ class _WelcomeBanner extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Witaj, ${user.name.split(' ').first}!', style: theme.textTheme.headlineSmall),
-                    Text(user.rank, style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onPrimaryContainer.withOpacity(0.7),
-                    )),
+                    Text(
+                      'Witaj, ${user.name.split(' ').first}!',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      user.rank,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: Colors.white.withOpacity(0.85),
+                      ),
+                    ),
                   ],
                 ),
               ),
               Icon(
                 Icons.chevron_right,
-                color: theme.colorScheme.onPrimaryContainer.withOpacity(0.5),
+                color: Colors.white.withOpacity(0.7),
               ),
             ],
           ),
@@ -714,7 +789,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           SliverAppBar(
             expandedHeight: 260,
             pinned: true,
-            backgroundColor: theme.colorScheme.primaryContainer,
+            backgroundColor: kPrimaryGreen,
             actions: [
               if (_isCurrentUser)
                 IconButton(
@@ -729,13 +804,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             ],
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      theme.colorScheme.primary,
-                      theme.colorScheme.primaryContainer,
+                      kPrimaryGreen,
+                      kPrimaryGreenLight,
                     ],
                   ),
                 ),
@@ -745,7 +820,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Avatar
+                        // Avatar with logo for current user
                         Hero(
                           tag: _isCurrentUser ? 'profile_avatar' : 'avatar_${user.id}',
                           child: Container(
@@ -760,18 +835,24 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                 ),
                               ],
                             ),
-                            child: CircleAvatar(
-                              radius: 50,
-                              backgroundColor: theme.colorScheme.secondary,
-                              child: Text(
-                                user.initials,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
+                            child: _isCurrentUser
+                                ? const CircleAvatar(
+                                    radius: 50,
+                                    backgroundColor: Colors.white,
+                                    child: AppLogo(size: 60),
+                                  )
+                                : CircleAvatar(
+                                    radius: 50,
+                                    backgroundColor: kPrimaryGreenLight,
+                                    child: Text(
+                                      user.initials,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 32,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
                           ),
                         ),
                         const SizedBox(height: 12),
