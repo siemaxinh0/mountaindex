@@ -123,23 +123,110 @@ class DataService {
     ),
   ];
 
-  final List<AppUser> _friends = [
-    AppUser(
+  // ============ MOCK DATA - Użytkownicy ============
+  
+  // ID zalogowanego użytkownika
+  static const String currentUserId = 'user1';
+
+  // Wszyscy użytkownicy w systemie
+  final Map<String, AppUser> _users = {
+    'user1': AppUser(
+      id: 'user1',
+      name: 'Jan Kowalski',
+      stats: UserStats(
+        totalPeaks: 5,
+        totalElevationGain: 8173,
+        totalExpeditions: 5,
+        highestPeak: 2499,
+        highestPeakName: 'Rysy',
+      ),
+      highestPeakName: 'Rysy',
+      highestPeakHeight: 2499,
+      highestPeakRegion: 'Tatry',
+      conqueredPeaksCount: 4,
+      friendIds: ['friend1', 'friend2', 'friend3'],
+    ),
+    'friend1': AppUser(
       id: 'friend1',
       name: 'Anna Nowak',
-      stats: UserStats(totalPeaks: 15, totalElevationGain: 18500, highestPeak: 2499),
+      stats: UserStats(
+        totalPeaks: 15,
+        totalElevationGain: 18500,
+        totalExpeditions: 20,
+        highestPeak: 2499,
+        highestPeakName: 'Rysy',
+      ),
+      highestPeakName: 'Rysy',
+      highestPeakHeight: 2499,
+      highestPeakRegion: 'Tatry',
+      conqueredPeaksCount: 15,
+      friendIds: ['user1', 'friend2', 'friend4'],
     ),
-    AppUser(
+    'friend2': AppUser(
       id: 'friend2',
       name: 'Piotr Kowalski',
-      stats: UserStats(totalPeaks: 8, totalElevationGain: 9200, highestPeak: 1894),
+      stats: UserStats(
+        totalPeaks: 8,
+        totalElevationGain: 9200,
+        totalExpeditions: 12,
+        highestPeak: 1894,
+        highestPeakName: 'Giewont',
+      ),
+      highestPeakName: 'Giewont',
+      highestPeakHeight: 1894,
+      highestPeakRegion: 'Tatry',
+      conqueredPeaksCount: 8,
+      friendIds: ['user1', 'friend1', 'friend3'],
     ),
-    AppUser(
+    'friend3': AppUser(
       id: 'friend3',
       name: 'Kasia Wiśniewska',
-      stats: UserStats(totalPeaks: 22, totalElevationGain: 28000, highestPeak: 2499),
+      stats: UserStats(
+        totalPeaks: 22,
+        totalElevationGain: 28000,
+        totalExpeditions: 35,
+        highestPeak: 2499,
+        highestPeakName: 'Rysy',
+      ),
+      highestPeakName: 'Rysy',
+      highestPeakHeight: 2499,
+      highestPeakRegion: 'Tatry',
+      conqueredPeaksCount: 22,
+      friendIds: ['user1', 'friend2', 'friend4', 'friend5'],
     ),
-  ];
+    'friend4': AppUser(
+      id: 'friend4',
+      name: 'Marek Zieliński',
+      stats: UserStats(
+        totalPeaks: 12,
+        totalElevationGain: 14500,
+        totalExpeditions: 18,
+        highestPeak: 2301,
+        highestPeakName: 'Świnica',
+      ),
+      highestPeakName: 'Świnica',
+      highestPeakHeight: 2301,
+      highestPeakRegion: 'Tatry',
+      conqueredPeaksCount: 12,
+      friendIds: ['friend1', 'friend3'],
+    ),
+    'friend5': AppUser(
+      id: 'friend5',
+      name: 'Ewa Nowicka',
+      stats: UserStats(
+        totalPeaks: 6,
+        totalElevationGain: 7800,
+        totalExpeditions: 10,
+        highestPeak: 1725,
+        highestPeakName: 'Babia Góra',
+      ),
+      highestPeakName: 'Babia Góra',
+      highestPeakHeight: 1725,
+      highestPeakRegion: 'Beskid Żywiecki',
+      conqueredPeaksCount: 6,
+      friendIds: ['friend3'],
+    ),
+  };
 
   final List<Achievement> _achievements = [
     Achievement(
@@ -246,10 +333,42 @@ class DataService {
     return exp.map((e) => e.peakId).toSet();
   }
 
-  /// Pobierz znajomych
+  /// Pobierz aktualnie zalogowanego użytkownika
+  Future<AppUser> getCurrentUser() async {
+    await Future.delayed(const Duration(milliseconds: 100));
+    return _users[currentUserId]!;
+  }
+
+  /// Pobierz użytkownika po ID
+  Future<AppUser?> getUserById(String userId) async {
+    await Future.delayed(const Duration(milliseconds: 100));
+    return _users[userId];
+  }
+
+  /// Sprawdź czy użytkownik jest zalogowanym użytkownikiem
+  bool isCurrentUser(String userId) {
+    return userId == currentUserId;
+  }
+
+  /// Pobierz znajomych zalogowanego użytkownika
   Future<List<AppUser>> getFriends() async {
     await Future.delayed(const Duration(milliseconds: 100));
-    return _friends;
+    final currentUser = _users[currentUserId]!;
+    return currentUser.friendIds
+        .map((id) => _users[id])
+        .whereType<AppUser>()
+        .toList();
+  }
+
+  /// Pobierz znajomych konkretnego użytkownika
+  Future<List<AppUser>> getFriendsForUser(String userId) async {
+    await Future.delayed(const Duration(milliseconds: 100));
+    final user = _users[userId];
+    if (user == null) return [];
+    return user.friendIds
+        .map((id) => _users[id])
+        .whereType<AppUser>()
+        .toList();
   }
 
   /// Pobierz osiągnięcia

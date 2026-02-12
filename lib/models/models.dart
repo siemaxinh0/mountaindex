@@ -160,13 +160,39 @@ class AppUser {
   final String name;
   final String? avatarUrl;
   final UserStats stats;
+  final String? highestPeakName;
+  final int? highestPeakHeight;
+  final String? highestPeakRegion;
+  final int conqueredPeaksCount;
+  final List<String> friendIds;
 
   AppUser({
     required this.id,
     required this.name,
     this.avatarUrl,
     required this.stats,
+    this.highestPeakName,
+    this.highestPeakHeight,
+    this.highestPeakRegion,
+    this.conqueredPeaksCount = 0,
+    this.friendIds = const [],
   });
+
+  /// Oblicz rangę na podstawie liczby zdobytych szczytów
+  String get rank {
+    final peaks = stats.totalPeaks;
+    if (peaks >= 20) return 'Legenda Gór';
+    if (peaks >= 15) return 'Mistrz Wypraw';
+    if (peaks >= 10) return 'Wytrawny Zdobywca';
+    if (peaks >= 5) return 'Poszukiwacz Przygód';
+    if (peaks >= 1) return 'Początkujący Turysta';
+    return 'Nowicjusz';
+  }
+
+  /// Pobierz inicjały z imienia i nazwiska
+  String get initials {
+    return name.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase();
+  }
 }
 
 /// Model osiągnięcia

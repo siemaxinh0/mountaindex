@@ -92,7 +92,7 @@ class StatsScreen extends StatefulWidget {
 
 class _StatsScreenState extends State<StatsScreen> {
   final DataService _dataService = DataService();
-  UserStats? _stats;
+  AppUser? _currentUser;
   int _conqueredPeaks = 0;
   Peak? _highestConqueredPeak;
   bool _loading = true;
@@ -104,7 +104,7 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   Future<void> _loadStats() async {
-    final stats = await _dataService.getUserStats('user1');
+    final currentUser = await _dataService.getCurrentUser();
     final peaks = await _dataService.getAllPeaks();
     final conqueredPeaks = peaks.where((p) => p.isConquered).toList();
     
@@ -115,7 +115,7 @@ class _StatsScreenState extends State<StatsScreen> {
     }
     
     setState(() {
-      _stats = stats;
+      _currentUser = currentUser;
       _conqueredPeaks = conqueredPeaks.length;
       _highestConqueredPeak = highest;
       _loading = false;
@@ -123,14 +123,11 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   void _navigateToProfile() {
+    if (_currentUser == null) return;
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => UserProfileScreen(
-          stats: _stats,
-          conqueredPeaks: _conqueredPeaks,
-          highestPeak: _highestConqueredPeak,
-        ),
+        builder: (context) => UserProfileScreen(user: _currentUser!),
       ),
     );
   }
@@ -155,6 +152,7 @@ class _StatsScreenState extends State<StatsScreen> {
                 children: [
                   // ===== KLIKALNY BANER POWITALNY =====
                   _WelcomeBanner(
+                    user: _currentUser!,
                     onTap: _navigateToProfile,
                   ),
                   const SizedBox(height: 24),
@@ -168,14 +166,14 @@ class _StatsScreenState extends State<StatsScreen> {
                     icon: Icons.terrain,
                     iconColor: theme.colorScheme.primary,
                     title: 'Zdobyte szczyty',
-                    value: '${_stats?.totalPeaks ?? 0}',
+                    value: '${_currentUser?.stats.totalPeaks ?? 0}',
                     subtitle: 'z Twojej listy',
                   ),
                   _StatListTile(
                     icon: Icons.trending_up,
                     iconColor: theme.colorScheme.tertiary,
                     title: 'Łączne przewyższenie',
-                    value: '${((_stats?.totalElevationGain ?? 0) / 1000).toStringAsFixed(1)} km',
+                    value: '${((_currentUser?.stats.totalElevationGain ?? 0) / 1000).toStringAsFixed(1)} km',
                     subtitle: 'suma wszystkich wejść',
                   ),
                   _StatListTile(
@@ -191,7 +189,7 @@ class _StatsScreenState extends State<StatsScreen> {
                     icon: Icons.hiking,
                     iconColor: Colors.orange,
                     title: 'Łączne wyprawy',
-                    value: '${_stats?.totalExpeditions ?? 0}',
+                    value: '${_currentUser?.stats.totalExpeditions ?? 0}',
                     subtitle: 'wszystkie wyjścia w góry',
                   ),
                   
@@ -213,9 +211,10 @@ class _StatsScreenState extends State<StatsScreen> {
 
 // ===== KLIKALNY BANER POWITALNY =====
 class _WelcomeBanner extends StatelessWidget {
+  final AppUser user;
   final VoidCallback onTap;
 
-  const _WelcomeBanner({required this.onTap});
+  const _WelcomeBanner({required this.user, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -235,7 +234,7 @@ class _WelcomeBanner extends StatelessWidget {
                 child: CircleAvatar(
                   radius: 30,
                   backgroundColor: theme.colorScheme.primary,
-                  child: const Text('JK', style: TextStyle(color: Colors.white, fontSize: 20)),
+                  child: Text(user.initials, style: const TextStyle(color: Colors.white, fontSize: 20)),
                 ),
               ),
               const SizedBox(width: 16),
@@ -243,8 +242,8 @@ class _WelcomeBanner extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Witaj, Jan!', style: theme.textTheme.headlineSmall),
-                    Text('Wytrawny Zdobywca', style: theme.textTheme.bodyMedium?.copyWith(
+                    Text('Witaj, ${user.name.split(' ').first}!', style: theme.textTheme.headlineSmall),
+                    Text(user.rank, style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onPrimaryContainer.withOpacity(0.7),
                     )),
                   ],
@@ -421,15 +420,11 @@ class _KoronaProgressCard extends StatelessWidget {
 
 // ============ USER PROFILE SCREEN ============
 class UserProfileScreen extends StatefulWidget {
-  final UserStats? stats;
-  final int conqueredPeaks;
-  final Peak? highestPeak;
+  final AppUser user;
 
   const UserProfileScreen({
     super.key,
-    this.stats,
-    required this.conqueredPeaks,
-    this.highestPeak,
+    required this.user,
   });
 
   @override
@@ -440,33 +435,37 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   final DataService _dataService = DataService();
   List<AppUser> _friends = [];
   bool _loading = true;
+  bool _isCurrentUser = false;
 
   @override
   void initState() {
     super.initState();
-    _loadFriends();
+    _loadData();
   }
 
-  Future<void> _loadFriends() async {
-    final friends = await _dataService.getFriends();
+  Future<void> _loadData() async {
+    final isCurrentUser = _dataService.isCurrentUser(widget.user.id);
+    final friends = await _dataService.getFriendsForUser(widget.user.id);
     setState(() {
+      _isCurrentUser = isCurrentUser;
       _friends = friends;
       _loading = false;
     });
   }
 
-  String _getRank(int peaks) {
-    if (peaks >= 20) return 'Legenda Gór';
-    if (peaks >= 15) return 'Mistrz Wypraw';
-    if (peaks >= 10) return 'Wytrawny Zdobywca';
-    if (peaks >= 5) return 'Poszukiwacz Przygód';
-    if (peaks >= 1) return 'Początkujący Turysta';
-    return 'Nowicjusz';
+  void _navigateToFriendProfile(AppUser friend) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => UserProfileScreen(user: friend),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final user = widget.user;
     
     return Scaffold(
       body: CustomScrollView(
@@ -476,6 +475,18 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             expandedHeight: 220,
             pinned: true,
             backgroundColor: theme.colorScheme.primaryContainer,
+            actions: [
+              if (_isCurrentUser)
+                IconButton(
+                  icon: const Icon(Icons.edit, color: Colors.white),
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Edycja profilu wkrótce!')),
+                    );
+                  },
+                  tooltip: 'Edytuj profil',
+                ),
+            ],
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: BoxDecoration(
@@ -495,7 +506,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       const SizedBox(height: 40),
                       // Avatar
                       Hero(
-                        tag: 'profile_avatar',
+                        tag: _isCurrentUser ? 'profile_avatar' : 'avatar_${user.id}',
                         child: Container(
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
@@ -511,9 +522,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                           child: CircleAvatar(
                             radius: 50,
                             backgroundColor: theme.colorScheme.secondary,
-                            child: const Text(
-                              'JK',
-                              style: TextStyle(
+                            child: Text(
+                              user.initials,
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 32,
                                 fontWeight: FontWeight.bold,
@@ -524,9 +535,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       ),
                       const SizedBox(height: 12),
                       // Imię
-                      const Text(
-                        'Jan Kowalski',
-                        style: TextStyle(
+                      Text(
+                        user.name,
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -546,7 +557,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                             const Icon(Icons.military_tech, color: Colors.amber, size: 18),
                             const SizedBox(width: 4),
                             Text(
-                              _getRank(widget.conqueredPeaks),
+                              user.rank,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w500,
@@ -570,18 +581,19 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // ===== NAJWYŻSZY ZDOBYTY SZCZYT =====
-                  if (widget.highestPeak != null) ...[
-                    _HighlightCard(peak: widget.highestPeak!),
+                  if (user.highestPeakName != null) ...[
+                    _HighlightCard(
+                      peakName: user.highestPeakName!,
+                      peakHeight: user.highestPeakHeight ?? 0,
+                      peakRegion: user.highestPeakRegion ?? '',
+                    ),
                     const SizedBox(height: 24),
                   ],
 
                   // ===== PODSUMOWANIE STATYSTYK =====
                   Text('Podsumowanie', style: theme.textTheme.titleLarge),
                   const SizedBox(height: 12),
-                  _ProfileStatsSummary(
-                    stats: widget.stats,
-                    conqueredPeaks: widget.conqueredPeaks,
-                  ),
+                  _ProfileStatsSummary(user: user),
                   const SizedBox(height: 24),
 
                   // ===== ZNAJOMI =====
@@ -590,7 +602,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   if (_loading)
                     const Center(child: CircularProgressIndicator())
                   else
-                    _FriendsSection(friends: _friends),
+                    _FriendsSection(
+                      friends: _friends,
+                      onFriendTap: _navigateToFriendProfile,
+                    ),
                 ],
               ),
             ),
@@ -603,9 +618,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
 // ===== KARTA NAJWYŻSZEGO SZCZYTU =====
 class _HighlightCard extends StatelessWidget {
-  final Peak peak;
+  final String peakName;
+  final int peakHeight;
+  final String peakRegion;
 
-  const _HighlightCard({required this.peak});
+  const _HighlightCard({
+    required this.peakName,
+    required this.peakHeight,
+    required this.peakRegion,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -650,13 +671,13 @@ class _HighlightCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  peak.name,
+                  peakName,
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 Text(
-                  '${peak.height} m n.p.m. • ${peak.region}',
+                  '$peakHeight m n.p.m. • $peakRegion',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.primary,
                   ),
@@ -672,13 +693,9 @@ class _HighlightCard extends StatelessWidget {
 
 // ===== PODSUMOWANIE STATYSTYK W PROFILU =====
 class _ProfileStatsSummary extends StatelessWidget {
-  final UserStats? stats;
-  final int conqueredPeaks;
+  final AppUser user;
 
-  const _ProfileStatsSummary({
-    this.stats,
-    required this.conqueredPeaks,
-  });
+  const _ProfileStatsSummary({required this.user});
 
   @override
   Widget build(BuildContext context) {
@@ -692,25 +709,25 @@ class _ProfileStatsSummary extends StatelessWidget {
           children: [
             _MiniStatItem(
               icon: Icons.terrain,
-              value: '${stats?.totalPeaks ?? 0}',
+              value: '${user.stats.totalPeaks}',
               label: 'Szczyty',
               color: theme.colorScheme.primary,
             ),
             _MiniStatItem(
               icon: Icons.hiking,
-              value: '${stats?.totalExpeditions ?? 0}',
+              value: '${user.stats.totalExpeditions}',
               label: 'Wyprawy',
               color: Colors.orange,
             ),
             _MiniStatItem(
               icon: Icons.trending_up,
-              value: '${((stats?.totalElevationGain ?? 0) / 1000).toStringAsFixed(1)}k',
+              value: '${(user.stats.totalElevationGain / 1000).toStringAsFixed(1)}k',
               label: 'Wysokość',
               color: theme.colorScheme.tertiary,
             ),
             _MiniStatItem(
               icon: Icons.workspace_premium,
-              value: '$conqueredPeaks/28',
+              value: '${user.conqueredPeaksCount}/28',
               label: 'Korona',
               color: Colors.amber,
             ),
@@ -768,8 +785,12 @@ class _MiniStatItem extends StatelessWidget {
 // ===== SEKCJA ZNAJOMYCH =====
 class _FriendsSection extends StatelessWidget {
   final List<AppUser> friends;
+  final void Function(AppUser) onFriendTap;
 
-  const _FriendsSection({required this.friends});
+  const _FriendsSection({
+    required this.friends,
+    required this.onFriendTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -799,7 +820,10 @@ class _FriendsSection extends StatelessWidget {
         itemCount: friends.length,
         itemBuilder: (context, index) {
           final friend = friends[index];
-          return _FriendAvatar(friend: friend);
+          return _FriendAvatar(
+            friend: friend,
+            onTap: () => onFriendTap(friend),
+          );
         },
       ),
     );
@@ -808,8 +832,12 @@ class _FriendsSection extends StatelessWidget {
 
 class _FriendAvatar extends StatelessWidget {
   final AppUser friend;
+  final VoidCallback onTap;
 
-  const _FriendAvatar({required this.friend});
+  const _FriendAvatar({
+    required this.friend,
+    required this.onTap,
+  });
 
   Color _getAvatarColor(String name) {
     final colors = [
@@ -825,53 +853,55 @@ class _FriendAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final initials = friend.name.split(' ').map((e) => e[0]).take(2).join();
     
-    return Container(
-      width: 90,
-      margin: const EdgeInsets.only(right: 12),
-      child: Column(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: _getAvatarColor(friend.name).withOpacity(0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: CircleAvatar(
-              radius: 32,
-              backgroundColor: _getAvatarColor(friend.name),
-              child: Text(
-                initials,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 90,
+        margin: const EdgeInsets.only(right: 12),
+        child: Column(
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: _getAvatarColor(friend.name).withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: CircleAvatar(
+                radius: 32,
+                backgroundColor: _getAvatarColor(friend.name),
+                child: Text(
+                  friend.initials,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            friend.name.split(' ').first,
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontWeight: FontWeight.w500,
+            const SizedBox(height: 8),
+            Text(
+              friend.name.split(' ').first,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w500,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
-            overflow: TextOverflow.ellipsis,
-          ),
-          Text(
-            '${friend.stats.totalPeaks} szczytów',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withOpacity(0.6),
-              fontSize: 11,
+            Text(
+              '${friend.stats.totalPeaks} szczytów',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                fontSize: 11,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1728,13 +1758,23 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
   }
 
   Future<void> _loadData() async {
-    final friends = await _dataService.getFriends();
+    final currentUser = await _dataService.getCurrentUser();
+    final friends = await _dataService.getFriendsForUser(currentUser.id);
     final achievements = await _dataService.getAchievements();
     setState(() {
       _friends = friends;
       _achievements = achievements;
       _loading = false;
     });
+  }
+
+  void _navigateToProfile(AppUser user) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => UserProfileScreen(user: user),
+      ),
+    );
   }
 
   @override
@@ -1783,20 +1823,20 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
         final friend = _friends[index];
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
-          child: ListTile(
-            leading: CircleAvatar(
-              backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-              child: Text(friend.name[0]),
-            ),
-            title: Text(friend.name),
-            subtitle: Text('${friend.stats.totalPeaks} szczytów • ${friend.stats.highestPeak}m najwyższy'),
-            trailing: IconButton(
-              icon: const Icon(Icons.send),
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Wiadomości wkrótce!')),
-                );
-              },
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => _navigateToProfile(friend),
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+                child: Text(friend.initials),
+              ),
+              title: Text(friend.name),
+              subtitle: Text('${friend.stats.totalPeaks} szczytów • ${friend.rank}'),
+              trailing: Icon(
+                Icons.chevron_right,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+              ),
             ),
           ),
         );
