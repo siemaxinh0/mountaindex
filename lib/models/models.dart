@@ -2,53 +2,70 @@
 class Peak {
   final String id;
   final String name;
-  final int altitude;
-  final String range;
   final String region;
-  final String summerDifficulty;
-  final String winterDifficulty;
-  final String? imageUrl;
-  final String? description;
-  final List<String> crowns;
+  final int height;
+  final double difficultySummer;
+  final double difficultyWinter;
+  bool isConquered;
+  DateTime? conquerDate;
 
   Peak({
     required this.id,
     required this.name,
-    required this.altitude,
-    required this.range,
-    this.region = '',
-    this.summerDifficulty = 'łatwy',
-    this.winterDifficulty = 'umiarkowany',
-    this.imageUrl,
-    this.description,
-    this.crowns = const [],
+    required this.region,
+    required this.height,
+    this.difficultySummer = 2.0,
+    this.difficultyWinter = 3.0,
+    this.isConquered = false,
+    this.conquerDate,
   });
 
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
-    'altitude': altitude,
-    'range': range,
     'region': region,
-    'summerDifficulty': summerDifficulty,
-    'winterDifficulty': winterDifficulty,
-    'imageUrl': imageUrl,
-    'description': description,
-    'crowns': crowns,
+    'height': height,
+    'difficultySummer': difficultySummer,
+    'difficultyWinter': difficultyWinter,
+    'isConquered': isConquered,
+    'conquerDate': conquerDate?.toIso8601String(),
   };
 
   factory Peak.fromJson(Map<String, dynamic> json) => Peak(
     id: json['id'] as String,
     name: json['name'] as String,
-    altitude: json['altitude'] as int,
-    range: json['range'] as String,
     region: json['region'] as String? ?? '',
-    summerDifficulty: json['summerDifficulty'] as String? ?? 'łatwy',
-    winterDifficulty: json['winterDifficulty'] as String? ?? 'umiarkowany',
-    imageUrl: json['imageUrl'] as String?,
-    description: json['description'] as String?,
-    crowns: List<String>.from(json['crowns'] ?? []),
+    height: json['height'] as int,
+    difficultySummer: (json['difficultySummer'] as num?)?.toDouble() ?? 2.0,
+    difficultyWinter: (json['difficultyWinter'] as num?)?.toDouble() ?? 3.0,
+    isConquered: json['isConquered'] as bool? ?? false,
+    conquerDate: json['conquerDate'] != null 
+        ? DateTime.parse(json['conquerDate'] as String) 
+        : null,
   );
+
+  /// Kopiuj Peak z możliwością zmiany pól
+  Peak copyWith({
+    String? id,
+    String? name,
+    String? region,
+    int? height,
+    double? difficultySummer,
+    double? difficultyWinter,
+    bool? isConquered,
+    DateTime? conquerDate,
+  }) {
+    return Peak(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      region: region ?? this.region,
+      height: height ?? this.height,
+      difficultySummer: difficultySummer ?? this.difficultySummer,
+      difficultyWinter: difficultyWinter ?? this.difficultyWinter,
+      isConquered: isConquered ?? this.isConquered,
+      conquerDate: conquerDate ?? this.conquerDate,
+    );
+  }
 }
 
 /// Model wyprawy

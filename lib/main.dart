@@ -93,6 +93,7 @@ class StatsScreen extends StatefulWidget {
 class _StatsScreenState extends State<StatsScreen> {
   final DataService _dataService = DataService();
   UserStats? _stats;
+  int _conqueredPeaks = 0;
   bool _loading = true;
 
   @override
@@ -103,8 +104,10 @@ class _StatsScreenState extends State<StatsScreen> {
 
   Future<void> _loadStats() async {
     final stats = await _dataService.getUserStats('user1');
+    final peaks = await _dataService.getAllPeaks();
     setState(() {
       _stats = stats;
+      _conqueredPeaks = peaks.where((p) => p.isConquered).length;
       _loading = false;
     });
   }
@@ -213,12 +216,12 @@ class _StatsScreenState extends State<StatsScreen> {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text('Postęp: 3 z 28', style: theme.textTheme.titleMedium),
+                                      Text('Postęp: $_conqueredPeaks z 28', style: theme.textTheme.titleMedium),
                                       const SizedBox(height: 4),
                                       ClipRRect(
                                         borderRadius: BorderRadius.circular(8),
                                         child: LinearProgressIndicator(
-                                          value: 3 / 28,
+                                          value: _conqueredPeaks / 28,
                                           minHeight: 10,
                                           backgroundColor: Colors.grey[300],
                                         ),
@@ -226,7 +229,7 @@ class _StatsScreenState extends State<StatsScreen> {
                                     ],
                                   ),
                                 ),
-                                Text('11%', style: theme.textTheme.titleLarge?.copyWith(
+                                Text('${(_conqueredPeaks / 28 * 100).round()}%', style: theme.textTheme.titleLarge?.copyWith(
                                   color: theme.colorScheme.primary,
                                 )),
                               ],
@@ -501,7 +504,7 @@ class _ExpeditionCard extends StatelessWidget {
   }
 }
 
-// ============ PEAKS SCREEN ============
+// ============ PEAKS SCREEN (Baza Szczytów) ============
 class PeaksScreen extends StatefulWidget {
   const PeaksScreen({super.key});
 
@@ -512,10 +515,10 @@ class PeaksScreen extends StatefulWidget {
 class _PeaksScreenState extends State<PeaksScreen> {
   final DataService _dataService = DataService();
   List<Peak> _peaks = [];
-  Set<String> _climbedIds = {};
   bool _loading = true;
-  String _filter = 'Wszystkie';
   String _searchQuery = '';
+  String _seasonFilter = 'Lato'; // 'Lato' lub 'Zima'
+  String _statusFilter = 'Wszystkie'; // 'Wszystkie', 'Zdobyte', 'Do zdobycia'
 
   @override
   void initState() {
@@ -525,34 +528,38 @@ class _PeaksScreenState extends State<PeaksScreen> {
 
   Future<void> _loadPeaks() async {
     final peaks = await _dataService.getAllPeaks();
-    final climbedIds = await _dataService.getClimbedPeakIds('user1');
     setState(() {
       _peaks = peaks;
-      _climbedIds = climbedIds;
       _loading = false;
     });
   }
 
   List<Peak> get _filteredPeaks {
-    var result = _peaks;
+    var result = List<Peak>.from(_peaks);
     
-    if (_filter == 'Korona Gór Polski') {
-      result = result.where((p) => p.crowns.contains('Korona Gór Polski')).toList();
-    } else if (_filter == 'Zdobyte') {
-      result = result.where((p) => _climbedIds.contains(p.id)).toList();
-    } else if (_filter == 'Do zdobycia') {
-      result = result.where((p) => !_climbedIds.contains(p.id)).toList();
+    // Filtruj po statusie zdobycia
+    if (_statusFilter == 'Zdobyte') {
+      result = result.where((p) => p.isConquered).toList();
+    } else if (_statusFilter == 'Do zdobycia') {
+      result = result.where((p) => !p.isConquered).toList();
     }
     
+    // Filtruj po nazwie/regionie
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
       result = result.where((p) => 
         p.name.toLowerCase().contains(q) || 
-        p.range.toLowerCase().contains(q)
+        p.region.toLowerCase().contains(q)
       ).toList();
     }
     
-    return result..sort((a, b) => b.altitude.compareTo(a.altitude));
+    // Sortuj po wysokości (malejąco)
+    return result..sort((a, b) => b.height.compareTo(a.height));
+  }
+
+  void _toggleConquered(Peak peak) async {
+    await _dataService.togglePeakConquered(peak.id);
+    await _loadPeaks();
   }
 
   @override
@@ -563,57 +570,124 @@ class _PeaksScreenState extends State<PeaksScreen> {
       appBar: AppBar(
         title: const Text('Baza Szczytów'),
         backgroundColor: theme.colorScheme.primaryContainer,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Chip(
+              avatar: Icon(Icons.workspace_premium, color: Colors.amber[700], size: 18),
+              label: Text(
+                '${_peaks.where((p) => p.isConquered).length}/28',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              backgroundColor: theme.colorScheme.secondaryContainer,
+            ),
+          ),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                // Search
+                // ===== WYSZUKIWARKA =====
                 Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                   child: TextField(
                     decoration: InputDecoration(
-                      hintText: 'Szukaj szczytu...',
+                      hintText: 'Szukaj szczytu lub regionu...',
                       prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () => setState(() => _searchQuery = ''),
+                            )
+                          : null,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                       filled: true,
+                      fillColor: theme.colorScheme.surfaceContainerHighest.withOpacity(0.3),
                     ),
                     onChanged: (v) => setState(() => _searchQuery = v),
                   ),
                 ),
-                // Filters
+
+                // ===== PRZEŁĄCZNIK LATO/ZIMA =====
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: SegmentedButton<String>(
+                          segments: const [
+                            ButtonSegment(
+                              value: 'Lato',
+                              label: Text('Lato'),
+                              icon: Icon(Icons.wb_sunny),
+                            ),
+                            ButtonSegment(
+                              value: 'Zima',
+                              label: Text('Zima'),
+                              icon: Icon(Icons.ac_unit),
+                            ),
+                          ],
+                          selected: {_seasonFilter},
+                          onSelectionChanged: (s) => setState(() => _seasonFilter = s.first),
+                          style: ButtonStyle(
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // ===== FILTRY STATUSU =====
                 SizedBox(
-                  height: 40,
+                  height: 42,
                   child: ListView(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     children: [
-                      for (final filter in ['Wszystkie', 'Korona Gór Polski', 'Zdobyte', 'Do zdobycia'])
+                      for (final filter in ['Wszystkie', 'Zdobyte', 'Do zdobycia'])
                         Padding(
                           padding: const EdgeInsets.only(right: 8),
                           child: FilterChip(
                             label: Text(filter),
-                            selected: _filter == filter,
-                            onSelected: (s) => setState(() => _filter = filter),
+                            selected: _statusFilter == filter,
+                            onSelected: (s) => setState(() => _statusFilter = filter),
+                            showCheckmark: false,
                           ),
                         ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 8),
-                // Peak list
+
+                // ===== LISTA SZCZYTÓW =====
                 Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _filteredPeaks.length,
-                    itemBuilder: (context, index) {
-                      final peak = _filteredPeaks[index];
-                      final isClimbed = _climbedIds.contains(peak.id);
-                      return _PeakCard(peak: peak, isClimbed: isClimbed);
-                    },
-                  ),
+                  child: _filteredPeaks.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
+                              const SizedBox(height: 16),
+                              Text('Brak wyników', style: theme.textTheme.titleMedium),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: _filteredPeaks.length,
+                          itemBuilder: (context, index) {
+                            final peak = _filteredPeaks[index];
+                            return _PeakCard(
+                              peak: peak,
+                              showSummer: _seasonFilter == 'Lato',
+                              onToggleConquered: () => _toggleConquered(peak),
+                            );
+                          },
+                        ),
                 ),
               ],
             ),
@@ -621,25 +695,56 @@ class _PeaksScreenState extends State<PeaksScreen> {
   }
 }
 
+// ===== WIDGET GWIAZDEK TRUDNOŚCI =====
+class _DifficultyStars extends StatelessWidget {
+  final double difficulty;
+  final Color color;
+  final double size;
+
+  const _DifficultyStars({
+    required this.difficulty,
+    this.color = Colors.amber,
+    this.size = 16,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(5, (index) {
+        final starValue = index + 1;
+        if (difficulty >= starValue) {
+          // Pełna gwiazdka
+          return Icon(Icons.star, color: color, size: size);
+        } else if (difficulty >= starValue - 0.5) {
+          // Połówka gwiazdki
+          return Icon(Icons.star_half, color: color, size: size);
+        } else {
+          // Pusta gwiazdka
+          return Icon(Icons.star_border, color: color.withOpacity(0.4), size: size);
+        }
+      }),
+    );
+  }
+}
+
+// ===== KARTA SZCZYTU =====
 class _PeakCard extends StatelessWidget {
   final Peak peak;
-  final bool isClimbed;
+  final bool showSummer;
+  final VoidCallback onToggleConquered;
 
-  const _PeakCard({required this.peak, required this.isClimbed});
-
-  Color _getDifficultyColor(String difficulty) {
-    switch (difficulty) {
-      case 'łatwy': return Colors.green;
-      case 'umiarkowany': return Colors.orange;
-      case 'trudny': return Colors.red;
-      case 'bardzo trudny': return Colors.purple;
-      default: return Colors.grey;
-    }
-  }
+  const _PeakCard({
+    required this.peak,
+    required this.showSummer,
+    required this.onToggleConquered,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final difficulty = showSummer ? peak.difficultySummer : peak.difficultyWinter;
+    final difficultyColor = showSummer ? Colors.orange : Colors.blue;
     
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -648,78 +753,109 @@ class _PeakCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Status icon
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: isClimbed 
-                      ? Colors.green.withOpacity(0.1) 
-                      : Colors.grey.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  isClimbed ? Icons.check_circle : Icons.circle_outlined,
-                  color: isClimbed ? Colors.green : Colors.grey,
-                ),
+              // Górna część - nazwa i checkbox
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Ikona zdobycia
+                  GestureDetector(
+                    onTap: onToggleConquered,
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: peak.isConquered 
+                            ? Colors.green.withOpacity(0.15) 
+                            : Colors.grey.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: peak.isConquered ? Colors.green : Colors.grey[400]!,
+                          width: 2,
+                        ),
+                      ),
+                      child: Icon(
+                        peak.isConquered ? Icons.check : Icons.add,
+                        color: peak.isConquered ? Colors.green : Colors.grey[500],
+                        size: 24,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  
+                  // Nazwa i region
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          peak.name,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          peak.region,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  // Wysokość
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${peak.height} m',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onPrimaryContainer,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 16),
-              // Info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(peak.name, style: theme.textTheme.titleMedium),
-                        ),
-                        if (peak.crowns.contains('Korona Gór Polski'))
-                          const Icon(Icons.workspace_premium, color: Colors.amber, size: 20),
-                      ],
+              
+              const SizedBox(height: 12),
+              
+              // Dolna część - trudność
+              Row(
+                children: [
+                  Icon(
+                    showSummer ? Icons.wb_sunny : Icons.ac_unit,
+                    size: 18,
+                    color: difficultyColor,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    showSummer ? 'Trudność lato:' : 'Trudność zima:',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  const SizedBox(width: 8),
+                  _DifficultyStars(
+                    difficulty: difficulty,
+                    color: difficultyColor,
+                    size: 18,
+                  ),
+                  const Spacer(),
+                  if (peak.isConquered && peak.conquerDate != null)
+                    Text(
+                      '${peak.conquerDate!.day}.${peak.conquerDate!.month}.${peak.conquerDate!.year}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.green[700],
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                    Text('${peak.altitude} m • ${peak.range}', 
-                      style: theme.textTheme.bodySmall),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(Icons.wb_sunny, size: 14, color: Colors.orange[300]),
-                        const SizedBox(width: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: _getDifficultyColor(peak.summerDifficulty).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(peak.summerDifficulty, 
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: _getDifficultyColor(peak.summerDifficulty),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Icon(Icons.ac_unit, size: 14, color: Colors.blue[300]),
-                        const SizedBox(width: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: _getDifficultyColor(peak.winterDifficulty).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(peak.winterDifficulty, 
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: _getDifficultyColor(peak.winterDifficulty),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                ],
               ),
             ],
           ),
@@ -729,6 +865,8 @@ class _PeakCard extends StatelessWidget {
   }
 
   void _showDetails(BuildContext context) {
+    final theme = Theme.of(context);
+    
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -736,16 +874,17 @@ class _PeakCard extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.5,
-        minChildSize: 0.3,
-        maxChildSize: 0.8,
+        initialChildSize: 0.55,
+        minChildSize: 0.35,
+        maxChildSize: 0.85,
         expand: false,
         builder: (context, scrollController) => SingleChildScrollView(
           controller: scrollController,
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Uchwyt
               Center(
                 child: Container(
                   width: 40,
@@ -756,76 +895,217 @@ class _PeakCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
+              
+              // Nagłówek
               Row(
-                children: [
-                  Expanded(
-                    child: Text(peak.name, style: Theme.of(context).textTheme.headlineSmall),
-                  ),
-                  if (isClimbed)
-                    Chip(
-                      avatar: const Icon(Icons.check, size: 16),
-                      label: const Text('Zdobyty'),
-                      backgroundColor: Colors.green.withOpacity(0.1),
-                    ),
-                ],
-              ),
-              Text('${peak.altitude} m n.p.m. • ${peak.range}'),
-              const SizedBox(height: 16),
-              if (peak.description != null) ...[
-                Text(peak.description!),
-                const SizedBox(height: 16),
-              ],
-              const Text('Trudność:', style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.wb_sunny, color: Colors.orange),
-                        const Text('Lato'),
-                        Text(peak.summerDifficulty, 
-                          style: TextStyle(color: _getDifficultyColor(peak.summerDifficulty)),
+                        Text(
+                          peak.name,
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          peak.region,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  Expanded(
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     child: Column(
                       children: [
-                        const Icon(Icons.ac_unit, color: Colors.blue),
-                        const Text('Zima'),
-                        Text(peak.winterDifficulty, 
-                          style: TextStyle(color: _getDifficultyColor(peak.winterDifficulty)),
+                        Text(
+                          '${peak.height}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 22,
+                            color: theme.colorScheme.onPrimaryContainer,
+                          ),
+                        ),
+                        Text(
+                          'm n.p.m.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.colorScheme.onPrimaryContainer.withOpacity(0.8),
+                          ),
                         ),
                       ],
                     ),
                   ),
                 ],
               ),
-              if (peak.crowns.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 8,
-                  children: peak.crowns.map((c) => Chip(
-                    avatar: const Icon(Icons.workspace_premium, size: 16, color: Colors.amber),
-                    label: Text(c),
-                  )).toList(),
+              
+              const SizedBox(height: 24),
+              
+              // Status zdobycia
+              if (peak.isConquered)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.green.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.check_circle, color: Colors.green, size: 28),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Szczyt zdobyty!',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green,
+                              ),
+                            ),
+                            if (peak.conquerDate != null)
+                              Text(
+                                'Data: ${peak.conquerDate!.day}.${peak.conquerDate!.month}.${peak.conquerDate!.year}',
+                                style: TextStyle(color: Colors.green[700]),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-              const SizedBox(height: 20),
+              
+              const SizedBox(height: 24),
+              
+              // Trudność
+              Text(
+                'Trudność szlaku',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              Row(
+                children: [
+                  // Lato
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.wb_sunny, color: Colors.orange[700]),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Lato',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.orange[800],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          _DifficultyStars(
+                            difficulty: peak.difficultySummer,
+                            color: Colors.orange,
+                            size: 22,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${peak.difficultySummer}/5.0',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.orange[700],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Zima
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.ac_unit, color: Colors.blue[700]),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Zima',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue[800],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          _DifficultyStars(
+                            difficulty: peak.difficultyWinter,
+                            color: Colors.blue,
+                            size: 22,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${peak.difficultyWinter}/5.0',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.blue[700],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // Przycisk akcji
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
                   onPressed: () {
+                    onToggleConquered();
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Planowanie wyprawy wkrótce!')),
-                    );
                   },
-                  icon: const Icon(Icons.add),
-                  label: Text(isClimbed ? 'Zaplanuj ponownie' : 'Zaplanuj wyprawę'),
+                  icon: Icon(peak.isConquered ? Icons.close : Icons.check),
+                  label: Text(peak.isConquered ? 'Oznacz jako niezdobyty' : 'Oznacz jako zdobyty'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: peak.isConquered ? Colors.red[400] : Colors.green,
+                  ),
                 ),
               ),
             ],
