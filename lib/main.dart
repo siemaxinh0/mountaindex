@@ -10,7 +10,6 @@ const Color kBackgroundLight = Color(0xFFF5F7F4);
 const Color kSurfaceLight = Color(0xFFEEF2EC);
 
 // ===== APP LOGO WIDGET =====
-/// Placeholder for app logo - replace Image.asset path with actual logo
 class AppLogo extends StatelessWidget {
   final double size;
   final bool withBackground;
@@ -23,10 +22,7 @@ class AppLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // TODO: Replace with actual logo asset
-    // return Image.asset('assets/images/logo.png', width: size, height: size);
-    
-    final logoWidget = Container(
+    return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
@@ -34,13 +30,36 @@ class AppLogo extends StatelessWidget {
         borderRadius: BorderRadius.circular(size * 0.2),
       ),
       child: Icon(
-        Icons.landscape,
+        Icons.terrain,
         size: size * 0.7,
         color: withBackground ? Colors.white : kPrimaryGreen,
       ),
     );
-    
-    return logoWidget;
+  }
+}
+
+// ===== LOADING INDICATOR WITH LOGO =====
+class _LoadingIndicator extends StatelessWidget {
+  const _LoadingIndicator();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const AppLogo(size: 64),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: 120,
+            child: LinearProgressIndicator(
+              backgroundColor: kPrimaryGreen.withOpacity(0.2),
+              valueColor: const AlwaysStoppedAnimation<Color>(kPrimaryGreen),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -219,7 +238,7 @@ class _StatsScreenState extends State<StatsScreen> {
         centerTitle: true,
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const _LoadingIndicator()
           : RefreshIndicator(
               onRefresh: _loadStats,
               child: ListView(
@@ -315,23 +334,12 @@ class _WelcomeBanner extends StatelessWidget {
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Witaj, ${user.name.split(' ').first}!',
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      user.rank,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: Colors.white.withOpacity(0.85),
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  'Witaj, ${user.name.split(' ').first}!',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               Icon(
@@ -486,7 +494,7 @@ class _AchievementCard extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: achievement.unlocked 
                           ? Colors.green.withOpacity(0.15)
-                          : theme.colorScheme.primaryContainer,
+                          : kPrimaryGreen.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -563,10 +571,10 @@ class _AchievementDetailScreenState extends State<AchievementDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(achievement.name),
-        backgroundColor: theme.colorScheme.primaryContainer,
+        backgroundColor: kPrimaryGreen,
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const _LoadingIndicator()
           : CustomScrollView(
               slivers: [
                 // Nagłówek z postępem
@@ -578,8 +586,8 @@ class _AchievementDetailScreenState extends State<AchievementDetailScreen> {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          theme.colorScheme.primaryContainer,
-                          theme.colorScheme.surface,
+                          kPrimaryGreen.withOpacity(0.3),
+                          kBackgroundLight,
                         ],
                       ),
                     ),
@@ -865,29 +873,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        // Ranga
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.military_tech, color: Colors.amber, size: 18),
-                              const SizedBox(width: 4),
-                              Text(
-                                user.rank,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                       ],
                     ),
                   ),
@@ -923,7 +908,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   Text('Znajomi', style: theme.textTheme.titleLarge),
                   const SizedBox(height: 12),
                   if (_loading)
-                    const Center(child: CircularProgressIndicator())
+                    const _LoadingIndicator()
                   else
                     _FriendsSection(
                       friends: _friends,
@@ -1264,7 +1249,7 @@ class _JournalScreenState extends State<JournalScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dziennik Wypraw'),
-        backgroundColor: theme.colorScheme.primaryContainer,
+        backgroundColor: kPrimaryGreen,
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
@@ -1276,7 +1261,7 @@ class _JournalScreenState extends State<JournalScreen> {
         label: const Text('Nowa wyprawa'),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const _LoadingIndicator()
           : _expeditions.isEmpty
               ? const Center(child: Text('Brak wypraw'))
               : ListView.builder(
@@ -1315,15 +1300,15 @@ class _ExpeditionCard extends StatelessWidget {
                 width: 70,
                 height: 70,
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.primaryContainer,
+                  color: kPrimaryGreen.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.terrain, color: theme.colorScheme.primary),
+                    Icon(Icons.terrain, color: kPrimaryGreen),
                     Text('${expedition.peakAltitude}m', 
-                      style: TextStyle(fontSize: 12, color: theme.colorScheme.primary),
+                      style: TextStyle(fontSize: 12, color: kPrimaryGreen),
                     ),
                   ],
                 ),
@@ -1520,7 +1505,7 @@ class _PeaksScreenState extends State<PeaksScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Baza Szczytów'),
-        backgroundColor: theme.colorScheme.primaryContainer,
+        backgroundColor: kPrimaryGreen,
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8),
@@ -1536,7 +1521,7 @@ class _PeaksScreenState extends State<PeaksScreen> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const _LoadingIndicator()
           : Column(
               children: [
                 // ===== WYSZUKIWARKA =====
@@ -1776,24 +1761,11 @@ class _PeakCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                peak.name,
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            if (peak.flags.isNotEmpty) ...[
-                              const SizedBox(width: 8),
-                              Text(
-                                peak.flags,
-                                style: const TextStyle(fontSize: 14),
-                              ),
-                            ],
-                          ],
+                        Text(
+                          peak.name,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         Text(
                           peak.region,
@@ -1809,14 +1781,14 @@ class _PeakCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer,
+                      color: kPrimaryGreen.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       '${peak.height} m',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.onPrimaryContainer,
+                        color: kPrimaryGreen,
                         fontSize: 13,
                       ),
                     ),
@@ -1933,7 +1905,7 @@ class _PeakCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer,
+                      color: kPrimaryGreen.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Column(
@@ -1943,14 +1915,14 @@ class _PeakCard extends StatelessWidget {
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 22,
-                            color: theme.colorScheme.onPrimaryContainer,
+                            color: kPrimaryGreen,
                           ),
                         ),
                         Text(
                           'm n.p.m.',
                           style: TextStyle(
                             fontSize: 12,
-                            color: theme.colorScheme.onPrimaryContainer.withOpacity(0.8),
+                            color: kPrimaryGreen.withOpacity(0.8),
                           ),
                         ),
                       ],
@@ -2275,7 +2247,7 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
     return Scaffold(
       appBar: AppBar(
         title: const Text('Społeczność'),
-        backgroundColor: theme.colorScheme.primaryContainer,
+        backgroundColor: kPrimaryGreen,
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
@@ -2285,7 +2257,7 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
         ),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const _LoadingIndicator()
           : TabBarView(
               controller: _tabController,
               children: [
@@ -2317,7 +2289,7 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                 child: Text(friend.initials),
               ),
               title: Text(friend.name),
-              subtitle: Text('${friend.stats.totalPeaks} szczytów • ${friend.rank}'),
+              subtitle: Text('${friend.stats.totalPeaks} szczytów'),
               trailing: Icon(
                 Icons.chevron_right,
                 color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
