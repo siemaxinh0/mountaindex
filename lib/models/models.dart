@@ -3,7 +3,7 @@ class Peak {
   final String id;
   final String name;
   final String region;
-  final String? country; // Kraj (np. 'Polska', 'Francja')
+  final List<String> countries; // Kraje (dla szczytów granicznych może być więcej)
   final String? range;   // Pasmo górskie (np. 'Tatry', 'Alpy')
   final int height;
   final double difficultySummer;
@@ -16,7 +16,7 @@ class Peak {
     required this.id,
     required this.name,
     required this.region,
-    this.country,
+    this.countries = const [],
     this.range,
     required this.height,
     this.difficultySummer = 2.0,
@@ -26,11 +26,66 @@ class Peak {
     this.conquerDate,
   });
 
+  /// Mapowanie krajów na flagi emoji
+  static const Map<String, String> countryFlags = {
+    'Polska': '🇵🇱',
+    'Słowacja': '🇸🇰',
+    'Czechy': '🇨🇿',
+    'Francja': '🇫🇷',
+    'Szwajcaria': '🇨🇭',
+    'Włochy': '🇮🇹',
+    'Austria': '🇦🇹',
+    'Hiszpania': '🇪🇸',
+    'Niemcy': '🇩🇪',
+    'Grecja': '🇬🇷',
+    'Bułgaria': '🇧🇬',
+    'Słowenia': '🇸🇮',
+    'Rumunia': '🇷🇴',
+    'Norwegia': '🇳🇴',
+    'Szwecja': '🇸🇪',
+    'Finlandia': '🇫🇮',
+    'Islandia': '🇮🇸',
+    'Wielka Brytania': '🇬🇧',
+    'Irlandia': '🇮🇪',
+    'Węgry': '🇭🇺',
+    'Ukraina': '🇺🇦',
+    'Portugalia': '🇵🇹',
+    'Belgia': '🇧🇪',
+    'Holandia': '🇳🇱',
+    'Luksemburg': '🇱🇺',
+    'Andora': '🇦🇩',
+    'Czarnogóra': '🇲🇪',
+    'Albania': '🇦🇱',
+    'Macedonia Północna': '🇲🇰',
+    'Serbia': '🇷🇸',
+    'Kosowo': '🇽🇰',
+    'Bośnia i Hercegowina': '🇧🇦',
+    'Chorwacja': '🇭🇷',
+    'Liechtenstein': '🇱🇮',
+    'Monako': '🇲🇨',
+    'San Marino': '🇸🇲',
+    'Watykan': '🇻🇦',
+    'Malta': '🇲🇹',
+    'Cypr': '🇨🇾',
+    'Estonia': '🇪🇪',
+    'Łotwa': '🇱🇻',
+    'Litwa': '🇱🇹',
+    'Białoruś': '🇧🇾',
+    'Mołdawia': '🇲🇩',
+    'Dania': '🇩🇰',
+  };
+
+  /// Pobierz flagi dla tego szczytu
+  String get flags => countries.map((c) => countryFlags[c] ?? '🏳️').join(' ');
+
+  /// Pobierz główny kraj (pierwszy z listy)
+  String? get country => countries.isNotEmpty ? countries.first : null;
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
     'region': region,
-    'country': country,
+    'countries': countries,
     'range': range,
     'height': height,
     'difficultySummer': difficultySummer,
@@ -44,7 +99,7 @@ class Peak {
     id: json['id'] as String,
     name: json['name'] as String,
     region: json['region'] as String? ?? '',
-    country: json['country'] as String?,
+    countries: List<String>.from(json['countries'] ?? []),
     range: json['range'] as String?,
     height: json['height'] as int,
     difficultySummer: (json['difficultySummer'] as num?)?.toDouble() ?? 2.0,
@@ -61,7 +116,7 @@ class Peak {
     String? id,
     String? name,
     String? region,
-    String? country,
+    List<String>? countries,
     String? range,
     int? height,
     double? difficultySummer,
@@ -74,7 +129,7 @@ class Peak {
       id: id ?? this.id,
       name: name ?? this.name,
       region: region ?? this.region,
-      country: country ?? this.country,
+      countries: countries ?? this.countries,
       range: range ?? this.range,
       height: height ?? this.height,
       difficultySummer: difficultySummer ?? this.difficultySummer,

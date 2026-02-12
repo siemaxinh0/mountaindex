@@ -1376,21 +1376,25 @@ class PeaksScreen extends StatefulWidget {
 class _PeaksScreenState extends State<PeaksScreen> {
   final DataService _dataService = DataService();
   List<Peak> _peaks = [];
+  List<String> _countries = [];
   bool _loading = true;
   String _searchQuery = '';
   String _seasonFilter = 'Lato'; // 'Lato' lub 'Zima'
   String _statusFilter = 'Wszystkie'; // 'Wszystkie', 'Zdobyte', 'Do zdobycia'
+  String? _countryFilter; // Filtr kraju (null = wszystkie)
 
   @override
   void initState() {
     super.initState();
-    _loadPeaks();
+    _loadData();
   }
 
-  Future<void> _loadPeaks() async {
+  Future<void> _loadData() async {
     final peaks = await _dataService.getAllPeaks();
+    final countries = await _dataService.getAvailableCountries();
     setState(() {
       _peaks = peaks;
+      _countries = countries;
       _loading = false;
     });
   }
@@ -1403,6 +1407,11 @@ class _PeaksScreenState extends State<PeaksScreen> {
       result = result.where((p) => p.isConquered).toList();
     } else if (_statusFilter == 'Do zdobycia') {
       result = result.where((p) => !p.isConquered).toList();
+    }
+    
+    // Filtruj po kraju
+    if (_countryFilter != null && _countryFilter!.isNotEmpty) {
+      result = result.where((p) => p.countries.contains(_countryFilter)).toList();
     }
     
     // Filtruj po nazwie/regionie
@@ -1420,7 +1429,7 @@ class _PeaksScreenState extends State<PeaksScreen> {
 
   void _toggleConquered(Peak peak) async {
     await _dataService.togglePeakConquered(peak.id);
-    await _loadPeaks();
+    await _loadData();
   }
 
   @override
@@ -1519,6 +1528,41 @@ class _PeaksScreenState extends State<PeaksScreen> {
                             showCheckmark: false,
                           ),
                         ),
+                    ],
+                  ),
+                ),
+                
+                // ===== FILTR KRAJU =====
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.flag, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: DropdownButtonFormField<String?>(
+                          value: _countryFilter,
+                          decoration: InputDecoration(
+                            labelText: 'Kraj',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            isDense: true,
+                          ),
+                          items: [
+                            const DropdownMenuItem<String?>(
+                              value: null,
+                              child: Text('Wszystkie kraje'),
+                            ),
+                            ..._countries.map((c) => DropdownMenuItem<String?>(
+                              value: c,
+                              child: Text('${Peak.countryFlags[c] ?? '🏳️'} $c'),
+                            )),
+                          ],
+                          onChanged: (v) => setState(() => _countryFilter = v),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1651,11 +1695,24 @@ class _PeakCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          peak.name,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                peak.name,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            if (peak.flags.isNotEmpty) ...[
+                              const SizedBox(width: 8),
+                              Text(
+                                peak.flags,
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                            ],
+                          ],
                         ),
                         Text(
                           peak.region,
